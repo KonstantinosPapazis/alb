@@ -1,0 +1,114 @@
+################################################################################
+# Application Load Balancer Resources
+################################################################################
+
+# Security Group for ALB
+resource "aws_security_group" "alb" {
+  name_prefix = "${local.name}-alb-"
+  vpc_id      = module.vpc.vpc_id
+  description = "Security group for Application Load Balancer"
+
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "All outbound traffic"
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = merge(local.tags, {
+    Name = "${local.name}-alb-sg"
+  })
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Application Load Balancer
+resource "aws_lb" "main" {
+  name               = "${local.name}-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.alb.id]
+  subnets            = module.vpc.public_subnets
+
+  enable_deletion_protection = false
+  enable_http2              = true
+
+  tags = merge(local.tags, {
+    Name = "${local.name}-alb"
+  })
+}
+
+# Target Group for EKS services
+resource "aws_lb_target_group" "eks_services" {
+  name        = "${local.name}-eks-tg"
+  port        = 80
+  protocol    = "HTTP"
+  vpc_id      = module.vpc.vpc_id
+  target_type = "ip"
+
+  health_check {
+    enabled             = true
+    healthy_threshold   = 2
+    interval            = 30
+    matcher             = "200"
+    path                = "/"
+    port                = "traffic-port"
+    protocol            = "HTTP"
+    timeout             = 5
+    unhealthy_threshold = 2
+  }
+
+  deregistration_delay = 30
+
+  tags = merge(local.tags, {
+    Name = "${local.name}-eks-tg"
+  })
+}
+
+# ALB Listener for HTTP
+resource "aws_lb_listener" "http" {
+  load_balancer_arn = aws_lb.main.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.eks_services.arn
+  }
+
+  tags = local.tags
+}
+
+################################################################################
+# Security Group Rules for EKS Nodes to allow ALB traffic
+################################################################################
+
+# Allow ALB to communicate with EKS nodes
+resource "aws_security_group_rule" "eks_nodes_alb_ingress" {
+  description              = "Allow ALB to communicate with EKS nodes"
+  type                     = "ingress"
+  from_port                = 0
+  to_port                  = 65535
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.alb.id
+  security_group_id        = module.eks.node_security_group_id
+} 
