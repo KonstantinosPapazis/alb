@@ -34,7 +34,7 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   set {
     name  = "vpcId"
-    value = "vpc-07e78bc62eadb1539" #module.vpc.vpc_id
+    value = data.aws_vpc.eks_vpc.id
   }
 
   # Optional: Enable logging
