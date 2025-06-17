@@ -34,7 +34,7 @@ resource "aws_iam_role" "aws_load_balancer_controller" {
     ]
   })
 
-  tags = local.tags
+  tags = {}
 }
 
 resource "aws_iam_policy" "aws_load_balancer_controller" {
@@ -539,10 +539,10 @@ resource "aws_iam_role_policy_attachment" "aws_load_balancer_controller" {
 
 # EKS Pod Identity Association for AWS Load Balancer Controller
 resource "aws_eks_pod_identity_association" "aws_load_balancer_controller" {
-  cluster_name    = module.eks.cluster_name
+  cluster_name    = local.eks_cluster_id #module.eks.cluster_name
   namespace       = "kube-system"
   service_account = "aws-load-balancer-controller"
   role_arn        = aws_iam_role.aws_load_balancer_controller.arn
 
-  tags = local.tags
+  tags = {}
 }

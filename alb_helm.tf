@@ -11,7 +11,7 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   set {
     name  = "clusterName"
-    value = module.eks.cluster_name
+    value = local.eks_cluster_id #module.eks.cluster_name
   }
 
   set {
@@ -29,12 +29,12 @@ resource "helm_release" "aws_load_balancer_controller" {
 
   set {
     name  = "region"
-    value = local.region # or data.aws_region.current.name
+    value = var.region # or data.aws_region.current.name
   }
 
   set {
     name  = "vpcId"
-    value = module.vpc.vpc_id
+    value = "vpc-07e78bc62eadb1539" #module.vpc.vpc_id
   }
 
   # Optional: Enable logging
@@ -61,7 +61,6 @@ resource "helm_release" "aws_load_balancer_controller" {
   }
 
   depends_on = [
-    module.eks,
     aws_eks_pod_identity_association.aws_load_balancer_controller
   ]
 }
